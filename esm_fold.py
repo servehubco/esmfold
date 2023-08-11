@@ -15,7 +15,7 @@ class SequenceInput(BaseModel):
     sequence: str
 
 @serve.deployment(route_prefix="/",
-                  ray_actor_options={"num_cpus": 4, "num_gpus": 1})
+                  ray_actor_options={"num_cpus": 2, "num_gpus": 1})
 @serve.ingress(app)
 class MyFastAPIDeployment:
     def __init__(self):
