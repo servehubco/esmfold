@@ -1,3 +1,5 @@
+import logging
+
 import torch
 import esm
 from fastapi import FastAPI
@@ -19,8 +21,11 @@ class SequenceInput(BaseModel):
 @serve.ingress(app)
 class MyFastAPIDeployment:
     def __init__(self):
+        logging.log(logging.INFO, "Loading model...")
         self.model = esm.pretrained.esmfold_v1()
+        logging.log(logging.INFO, "Model loaded.")
         self.model = self.model.eval().cuda()
+        logging.log(logging.INFO, "Model set to eval and cuda.")
 
     @app.post("/")
     async def root(self, seq_input: SequenceInput):

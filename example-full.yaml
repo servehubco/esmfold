@@ -3,7 +3,7 @@ cluster_name: default
 
 # The maximum number of workers nodes to launch in addition to the head
 # node.
-max_workers: 2
+max_workers: 3
 
 # The autoscaler will scale up the cluster faster with higher upscaling speed.
 # E.g., if the task requires adding more nodes then autoscaler will gradually
@@ -94,7 +94,7 @@ available_node_types:
         # You can also set custom resources.
         # For example, to mark a node type as having 1 CPU, 1 GPU, and 5 units of a resource called "custom", set
         # resources: {"CPU": 1, "GPU": 1, "custom": 5}
-        resources: {"CPU": 4, "GPU": 1}
+        resources: {}
         # Provider-specific config for this node type, e.g. instance type. By default
         # Ray will auto-configure unspecified fields such as SubnetId and KeyName.
         # For more documentation on available fields, see:
