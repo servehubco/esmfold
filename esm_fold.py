@@ -26,7 +26,7 @@ class MyFastAPIDeployment:
     async def root(self, seq_input: SequenceInput):
         try:
             with torch.no_grad():
-                output = self.model.infer_pdb(sequence)
+                output = self.model.infer_pdb(seq_input.sequence)
 
             with tempfile.NamedTemporaryFile(suffix=".pdb", delete=True) as temp:
                 temp.write(output.encode())
