@@ -3,7 +3,7 @@ import io
 import logging
 import zipfile
 from pathlib import Path
-from typing import Annotated, List, Optional
+from typing import List, Optional
 
 import esm
 from esm.data import read_fasta
@@ -79,14 +79,14 @@ class MyFastAPIDeployment:
         }
 
     @app.post("/fold_sequences")
-    async def fold_sequences(self, seqs: Annotated[List[SequenceInput], Body()] = Field(description="A list of sequences to fold with "
+    async def fold_sequences(self, seqs: List[SequenceInput] = Body(description="A list of sequences to fold with "
                                                                                  "names. "
                                                                                  "Use the `fold_sequences/no_name` "
                                                                                  "endpoint "
                                                                                  "if you don't have names."),
-                             num_recycles: Annotated[int, Body()] = Field(4, description="Number of recycles to run. Defaults to number "
+                             num_recycles: int = Body(4, description="Number of recycles to run. Defaults to number "
                                                                       "used in training (4)."),
-                             max_tokens_per_batch: Annotated[int, Body()] = Field(1024,
+                             max_tokens_per_batch: int = Body(1024,
                                                                description="Maximum number of tokens per gpu "
                                                                            "forward-pass. This will group shorter "
                                                                            "sequences together for batched prediction. "
@@ -162,14 +162,14 @@ class MyFastAPIDeployment:
         return outputs
 
     @app.post("/fold_sequences/no_name")
-    async def fold_sequences_no_name(self, seqs: Annotated[List[SequenceInput], Body()] = Field(description="A list of sequences to fold with "
+    async def fold_sequences_no_name(self, seqs: List[SequenceInput] = Body(description="A list of sequences to fold with "
                                                                                  "names. "
                                                                                  "Use the `fold_sequences/no_name` "
                                                                                  "endpoint "
                                                                                  "if you don't have names."),
-                             num_recycles: Annotated[int, Body()] = Field(4, description="Number of recycles to run. Defaults to number "
+                             num_recycles: int = Body(4, description="Number of recycles to run. Defaults to number "
                                                                       "used in training (4)."),
-                             max_tokens_per_batch: Annotated[int, Body()] = Field(1024,
+                             max_tokens_per_batch: int = Body(1024,
                                                                description="Maximum number of tokens per gpu "
                                                                            "forward-pass. This will group shorter "
                                                                            "sequences together for batched prediction. "
@@ -185,10 +185,10 @@ class MyFastAPIDeployment:
         return await self.fold_sequences(seqs, num_recycles, max_tokens_per_batch)
 
     @app.post("/fold_sequence")
-    async def fold_sequence(self, sequence: SequenceInput = Field(description="A sequence to fold with a name. Use the "
+    async def fold_sequence(self, sequence: SequenceInput = Body(description="A sequence to fold with a name. Use the "
                                                                               "`fold_sequence/no_name` endpoint if "
                                                                               "you don't have a name."),
-                             num_recycles: Annotated[int, Body()] = Field(4, description="Number of recycles to run. Defaults to number "
+                             num_recycles: int = Body(4, description="Number of recycles to run. Defaults to number "
                                                                       "used in training (4).")) -> FoldOutput:
         """
         Fold a sequence.
@@ -198,9 +198,9 @@ class MyFastAPIDeployment:
 
 
     @app.post("/fold_sequence/no_name")
-    async def fold_sequence_no_name(self, sequence: SequenceInput = Field(description="A sequence to fold with a name. Use the "
+    async def fold_sequence_no_name(self, sequence: SequenceInput = Body(description="A sequence to fold with a name. Use the "
                                                                               "`fold_sequence` endpoint if you'd like to provide a name for the sequence."),
-                             num_recycles: Annotated[int, Body()] = Field(4, description="Number of recycles to run. Defaults to number "
+                             num_recycles: int = Body(4, description="Number of recycles to run. Defaults to number "
                                                                       "used in training (4).")) -> FoldOutput:
         """
         Fold a sequence.
@@ -209,9 +209,9 @@ class MyFastAPIDeployment:
         return (await self.fold_sequences_no_name([sequence], num_recycles))[0]
 
     @app.post("/fold_fasta")
-    async def fold_fasta(self, fasta: UploadFile = Field(description="A fasta file containing sequences to fold."), num_recycles: int = Field(4, description="Number of recycles to run. Defaults to number "
+    async def fold_fasta(self, fasta: UploadFile = Body(description="A fasta file containing sequences to fold."), num_recycles: int = Body(4, description="Number of recycles to run. Defaults to number "
                                                                       "used in training (4)."),
-                             max_tokens_per_batch: Annotated[int, Body()] = Field(1024,
+                             max_tokens_per_batch: int = Body(1024,
                                                                description="Maximum number of tokens per gpu "
                                                                            "forward-pass. This will group shorter "
                                                                            "sequences together for batched prediction. "
@@ -240,9 +240,9 @@ class MyFastAPIDeployment:
 
 
     @app.post("/fold_fasta/zipped")
-    async def fold_fasta_zipped(self, fasta: UploadFile = Field(description="A fasta file containing sequences to fold."), num_recycles: int = Field(4, description="Number of recycles to run. Defaults to number "
+    async def fold_fasta_zipped(self, fasta: UploadFile = Body(description="A fasta file containing sequences to fold."), num_recycles: int = Body(4, description="Number of recycles to run. Defaults to number "
                                                                       "used in training (4)."),
-                             max_tokens_per_batch: Annotated[int, Body()] = Field(1024,
+                             max_tokens_per_batch: int = Body(1024,
                                                                description="Maximum number of tokens per gpu "
                                                                            "forward-pass. This will group shorter "
                                                                            "sequences together for batched prediction. "
