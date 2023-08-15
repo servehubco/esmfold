@@ -79,7 +79,7 @@ class MyFastAPIDeployment:
         }
 
     @app.post("/fold_sequences")
-    async def fold_sequences(self, seqs: List[SequenceInput] = Field(description="A list of sequences to fold with "
+    async def fold_sequences(self, seqs: Annotated[List[SequenceInput], Body()] = Field(description="A list of sequences to fold with "
                                                                                  "names. "
                                                                                  "Use the `fold_sequences/no_name` "
                                                                                  "endpoint "
@@ -162,7 +162,7 @@ class MyFastAPIDeployment:
         return outputs
 
     @app.post("/fold_sequences/no_name")
-    async def fold_sequences_no_name(self, seqs: List[SequenceInput] = Field(description="A list of sequences to fold with "
+    async def fold_sequences_no_name(self, seqs: Annotated[List[SequenceInput], Body()] = Field(description="A list of sequences to fold with "
                                                                                  "names. "
                                                                                  "Use the `fold_sequences/no_name` "
                                                                                  "endpoint "
