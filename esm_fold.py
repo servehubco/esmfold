@@ -193,8 +193,8 @@ class MyFastAPIDeployment:
     @app.post("/fold_sequence/no_name")
     async def fold_sequence_no_name(self, sequence: Annotated[str, Body(description="A sequence to fold. Use the "
                                                                               "`fold_sequence` endpoint if you'd like to provide a name for the sequence.")],
-                             num_recycles: Annotated[int, Body(4, description="Number of recycles to run. Defaults to number "
-                                                                      "used in training (4).")]) -> FoldOutput:
+                             num_recycles: Annotated[int, Body(description="Number of recycles to run. Defaults to number "
+                                                                      "used in training (4).")] = 4) -> FoldOutput:
         """
         Fold a sequence. Use this endpoint when you don't want to provide a name for the sequence.
         """
