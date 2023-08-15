@@ -3,7 +3,7 @@ import io
 import logging
 import zipfile
 from pathlib import Path
-from typing import List, Optional
+from typing import Annotated, List, Optional
 
 import esm
 from esm.data import read_fasta
@@ -70,7 +70,7 @@ class MyFastAPIDeployment:
     async def set_model_inference_hyperparams(self, params: ModelInferenceHyperparameters):
         """
         Set the model inference hyperparameters. This can be used to manage memory usage during inference.
-        :return: A dictionary with the previous and current values of the chunk_size parameter.
+        Returns a dictionary with the previous and current values of the chunk_size parameter.
         """
         self.model.set_chunk_size(params.chunk_size)
         return {
@@ -95,7 +95,6 @@ class MyFastAPIDeployment:
                                                                            "Default: 1024.")) -> List[FoldOutput]:
         """
         Fold a list of sequences.
-        :return: A list of FoldOutput objects, each containing the name, sequence, pdb_string, mean_plddt, and ptm of the folded sequence.
         """
         for seq_input in seqs:
             if not seq_input.name:
@@ -162,11 +161,7 @@ class MyFastAPIDeployment:
         return outputs
 
     @app.post("/fold_sequences/no_name")
-    async def fold_sequences_no_name(self, seqs: List[str] = Body(description="A list of sequences to fold with "
-                                                                                 "names. "
-                                                                                 "Use the `fold_sequences/no_name` "
-                                                                                 "endpoint "
-                                                                                 "if you don't have names."),
+    async def fold_sequences_no_name(self, seqs: List[str] = Body(description="A list of sequences to fold."),
                              num_recycles: int = Body(4, description="Number of recycles to run. Defaults to number "
                                                                       "used in training (4)."),
                              max_tokens_per_batch: int = Body(1024,
@@ -178,8 +173,7 @@ class MyFastAPIDeployment:
                                                                            "Default: 1024.")) -> \
     List[FoldOutput]:
         """
-        Fold a list of sequences.
-        :return: A list of FoldOutput objects, each containing the name, sequence, pdb_string, mean_plddt, and ptm of the folded sequence.
+        Fold a list of sequences. Use this endpoint when you don't want to provide names for each sequence.
         """
         seqs = [SequenceInput(sequence=seq) for seq in seqs]
         return await self.fold_sequences(seqs, num_recycles, max_tokens_per_batch)
@@ -192,19 +186,17 @@ class MyFastAPIDeployment:
                                                                       "used in training (4).")) -> FoldOutput:
         """
         Fold a sequence.
-        :return: A FoldOutput object containing the name, sequence, pdb_string, mean_plddt, and ptm of the folded sequence.
         """
         return (await self.fold_sequences([SequenceInput(name=name, sequence=sequence)], num_recycles))[0]
 
 
     @app.post("/fold_sequence/no_name")
-    async def fold_sequence_no_name(self, sequence: str = Body(description="A sequence to fold. Use the "
-                                                                              "`fold_sequence` endpoint if you'd like to provide a name for the sequence."),
-                             num_recycles: int = Body(4, description="Number of recycles to run. Defaults to number "
-                                                                      "used in training (4).")) -> FoldOutput:
+    async def fold_sequence_no_name(self, sequence: Annotated[str, Body(description="A sequence to fold. Use the "
+                                                                              "`fold_sequence` endpoint if you'd like to provide a name for the sequence.")],
+                             num_recycles: Annotated[int, Body(4, description="Number of recycles to run. Defaults to number "
+                                                                      "used in training (4).")]) -> FoldOutput:
         """
-        Fold a sequence.
-        :return: A FoldOutput object containing the name, sequence, pdb_string, mean_plddt, and ptm of the folded sequence.
+        Fold a sequence. Use this endpoint when you don't want to provide a name for the sequence.
         """
         return (await self.fold_sequences_no_name([sequence], num_recycles))[0]
 
@@ -220,7 +212,6 @@ class MyFastAPIDeployment:
                                                                            "Default: 1024.")) -> List[FoldOutput]:
         """
         Fold sequences from a fasta file. Use the `fold_fasta/zipped` endpoint if you'd like to download the results as a zip file.
-        :return: A list of FoldOutput objects, each containing the name, sequence, pdb_string, mean_plddt, and ptm of the folded sequence.
         """
         try:
             fasta_content = await fasta.read()
@@ -248,11 +239,11 @@ class MyFastAPIDeployment:
                                                                            "sequences together for batched prediction. "
                                                                            "Lowering this can help with out of memory "
                                                                            "issues, if these occur on short sequences. "
-                                                                           "Default: 1024.")):
+                                                                           "Default: 1024.")) -> StreamingResponse:
         """
         Fold sequences from a fasta file and download the results as a zip file. Use the `fold_fasta` endpoint if you'd
         like to return the results as a list.
-        :return: A zip file containing the pdb files and a csv file with the confidence metrics for each sequence.
+        Returns a zip file containing the pdb files and a csv file with the confidence metrics for each sequence.
         """
         try:
             results = await self.fold_fasta(fasta, num_recycles, max_tokens_per_batch)
