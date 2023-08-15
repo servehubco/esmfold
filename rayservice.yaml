@@ -85,9 +85,9 @@ spec:
                 resources:
                   limits:
                     cpu: "8"
-                    memory: "60Gi"
+                    memory: "10Gi"
                     nvidia.com/gpu: "1"
                   requests:
                     cpu: "8"
-                    memory: "60Gi"
+                    memory: "10Gi"
                     nvidia.com/gpu: "1"
