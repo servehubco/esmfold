@@ -5,7 +5,6 @@ import zipfile
 from pathlib import Path
 from typing import List, Optional
 
-import torch
 import esm
 from esm.data import read_fasta
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -15,9 +14,9 @@ import tempfile
 import biotite.structure.io as bsio
 from starlette.responses import StreamingResponse
 
-from .esm_fold_script import create_batched_sequence_datasest
 from timeit import default_timer as timer
 
+from esm_code.fold import create_batched_sequence_datasest
 
 # Load ESM-1b model
 
