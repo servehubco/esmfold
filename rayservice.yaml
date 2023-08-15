@@ -44,7 +44,7 @@ spec:
         spec:
           containers:
             - name: ray-head
-              image: rayproject/ray:2.6.1-py39
+              image: vivkr/esmfold:latest
               resources:
                 limits:
                   cpu: 0
