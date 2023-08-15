@@ -162,7 +162,7 @@ class MyFastAPIDeployment:
         return outputs
 
     @app.post("/fold_sequences/no_name")
-    async def fold_sequences_no_name(self, seqs: List[SequenceInput] = Body(description="A list of sequences to fold with "
+    async def fold_sequences_no_name(self, seqs: List[str] = Body(description="A list of sequences to fold with "
                                                                                  "names. "
                                                                                  "Use the `fold_sequences/no_name` "
                                                                                  "endpoint "
@@ -185,20 +185,20 @@ class MyFastAPIDeployment:
         return await self.fold_sequences(seqs, num_recycles, max_tokens_per_batch)
 
     @app.post("/fold_sequence")
-    async def fold_sequence(self, sequence: SequenceInput = Body(description="A sequence to fold with a name. Use the "
-                                                                              "`fold_sequence/no_name` endpoint if "
-                                                                              "you don't have a name."),
+    async def fold_sequence(self,
+                            name: str = Body(description="Name of the sequence."),
+                            sequence: str = Body(description="The sequence to fold."),
                              num_recycles: int = Body(4, description="Number of recycles to run. Defaults to number "
                                                                       "used in training (4).")) -> FoldOutput:
         """
         Fold a sequence.
         :return: A FoldOutput object containing the name, sequence, pdb_string, mean_plddt, and ptm of the folded sequence.
         """
-        return (await self.fold_sequences([sequence], num_recycles))[0]
+        return (await self.fold_sequences([SequenceInput(name=name, sequence=sequence)], num_recycles))[0]
 
 
     @app.post("/fold_sequence/no_name")
-    async def fold_sequence_no_name(self, sequence: SequenceInput = Body(description="A sequence to fold with a name. Use the "
+    async def fold_sequence_no_name(self, sequence: str = Body(description="A sequence to fold. Use the "
                                                                               "`fold_sequence` endpoint if you'd like to provide a name for the sequence."),
                              num_recycles: int = Body(4, description="Number of recycles to run. Defaults to number "
                                                                       "used in training (4).")) -> FoldOutput:
