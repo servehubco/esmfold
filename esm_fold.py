@@ -79,20 +79,20 @@ class MyFastAPIDeployment:
         }
 
     @app.post("/fold_sequences")
-    async def fold_sequences(self, seqs: List[SequenceInput] = Body(description="A list of sequences to fold with "
+    async def fold_sequences(self, seqs: Annotated[List[SequenceInput], Body(description="A list of sequences to fold with "
                                                                                  "names. "
                                                                                  "Use the `fold_sequences/no_name` "
                                                                                  "endpoint "
-                                                                                 "if you don't have names."),
-                             num_recycles: int = Body(4, description="Number of recycles to run. Defaults to number "
-                                                                      "used in training (4)."),
-                             max_tokens_per_batch: int = Body(1024,
+                                                                                 "if you don't have names.")],
+                             num_recycles: Annotated[int, Body(description="Number of recycles to run. Defaults to number "
+                                                                      "used in training (4).")] = 4,
+                             max_tokens_per_batch: Annotated[int, Body(
                                                                description="Maximum number of tokens per gpu "
                                                                            "forward-pass. This will group shorter "
                                                                            "sequences together for batched prediction. "
                                                                            "Lowering this can help with out of memory "
                                                                            "issues, if these occur on short sequences. "
-                                                                           "Default: 1024.")) -> List[FoldOutput]:
+                                                                           "Default: 1024.")] = 1024) -> List[FoldOutput]:
         """
         Fold a list of sequences.
         """
@@ -161,16 +161,16 @@ class MyFastAPIDeployment:
         return outputs
 
     @app.post("/fold_sequences/no_name")
-    async def fold_sequences_no_name(self, seqs: List[str] = Body(description="A list of sequences to fold."),
-                             num_recycles: int = Body(4, description="Number of recycles to run. Defaults to number "
-                                                                      "used in training (4)."),
-                             max_tokens_per_batch: int = Body(1024,
+    async def fold_sequences_no_name(self, seqs: Annotated[List[str], Body(description="A list of sequences to fold.")],
+                             num_recycles: Annotated[int, Body(description="Number of recycles to run. Defaults to number "
+                                                                      "used in training (4).")] = 4,
+                             max_tokens_per_batch: Annotated[int, Body(
                                                                description="Maximum number of tokens per gpu "
                                                                            "forward-pass. This will group shorter "
                                                                            "sequences together for batched prediction. "
                                                                            "Lowering this can help with out of memory "
                                                                            "issues, if these occur on short sequences. "
-                                                                           "Default: 1024.")) -> \
+                                                                           "Default: 1024.")] = 1024) -> \
     List[FoldOutput]:
         """
         Fold a list of sequences. Use this endpoint when you don't want to provide names for each sequence.
@@ -191,12 +191,12 @@ class MyFastAPIDeployment:
 
 
     @app.post("/fold_sequence/no_name")
-    async def fold_sequence_no_name(self, sequence: Annotated[str, Body(description="A sequence to fold. Use the "
-                                                                              "`fold_sequence` endpoint if you'd like to provide a name for the sequence.")],
+    async def fold_sequence_no_name(self, sequence: Annotated[str, Body(description="A sequence to fold.")],
                              num_recycles: Annotated[int, Body(description="Number of recycles to run. Defaults to number "
                                                                       "used in training (4).")] = 4) -> FoldOutput:
         """
         Fold a sequence. Use this endpoint when you don't want to provide a name for the sequence.
+        Use the `fold_sequence` endpoint if you'd like to provide a name for the sequence.
         """
         return (await self.fold_sequences_no_name([sequence], num_recycles))[0]
 
