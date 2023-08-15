@@ -9,7 +9,7 @@ import esm
 from esm.data import read_fasta
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from ray import serve
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import tempfile
 import biotite.structure.io as bsio
 from starlette.responses import StreamingResponse
@@ -24,45 +24,43 @@ from esm_code.fold import create_batched_sequence_datasest
 app = FastAPI()
 
 
-class InferenceMemoryManagementParams(BaseModel):
-    """
-    Parameters for managing memory usage during inference.
-    :arg max_tokens_per_batch: Maximum number of tokens per gpu forward-pass. This will group shorter sequences together
-        for batched prediction. Lowering this can help with out of memory issues, if these occur on short sequences. Default: 1024.
-    :arg chunk_size: Chunks axial attention computation to reduce memory usage from O(L^2) to O(L). Equivalent to running
-        a for loop over chunks of each dimension. Lower values will result in lower memory usage at the cost of speed.
-        Recommended values: 128, 64, 32. Default: None.
-    """
-    max_tokens_per_batch: Optional[int]
-    chunk_size: Optional[int]
-
 class SequenceInput(BaseModel):
     """
     A sequence input to the model.
-    :arg name: Optional name for the sequence. If not provided, the sequence will be named the first 20 letters of the sequence.
-    :arg sequence: The protein sequence to fold.
     """
-    name: Optional[str]
-    sequence: str
+    name: Optional[str] = Field(None, description="Name for the sequence. If not provided, the sequence will be named the first 20 letters of the sequence.")
+    sequence: str = Field(description="The protein sequence to fold.")
+
+class FastaInput(BaseModel):
+    """
+    A fasta file input to the model.
+    """
+    fasta: UploadFile = Field(description="A fasta file containing sequences to fold.")
 
 
 class FoldOutput(BaseModel):
-    name: str
-    sequence: str
-    pdb_string: str
-    mean_plddt: float
-    ptm: float
+    """
+    A folded sequence output from the model.
+    """
+    name: str = Field(description="Name of the sequence.")
+    sequence: str = Field(description="The protein sequence.")
+    pdb_string: str = Field(description="The pdb string of the folded sequence. Save this string to a .pdf file.")
+    mean_plddt: float = Field(description="The mean pLDDT of the folded sequence.")
+    ptm: float = Field(description="The pTM of the folded sequence.")
 
-class pLDDTOutput(BaseModel):
-    mean: float
-    per_residue: list
+
+class ModelInferenceHyperparameters(BaseModel):
+    """
+    Hyperparameters that can be set for model inference. These can be used to manage memory usage during inference.
+    """
+    chunk_size: Optional[int] = Field(None, description="Chunks axial attention computation to reduce memory usage from O(L^2) to O(L). Equivalent to running a for loop over chunks of each dimension. Lower values will result in lower memory usage at the cost of speed. Recommended values: 128, 64, 32. Default: None.")
 
 # class FoldOutput(BaseModel):
 #     pdb: str
 #     plddt: Optional[pLDDTOutput]
 
 @serve.deployment(route_prefix="/",
-                  ray_actor_options={"num_cpus": 2, "num_gpus": 1})
+                  ray_actor_options={"num_cpus": 3, "num_gpus": 1})
 @serve.ingress(app)
 class MyFastAPIDeployment:
     def __init__(self):
@@ -75,31 +73,36 @@ class MyFastAPIDeployment:
 
 
     @app.post("/set_model_inference_hyperparams")
-    async def set_model_inference_hyperparams(self, chunk_size: Optional[int] = None):
+    async def set_model_inference_hyperparams(self, params: ModelInferenceHyperparameters):
         """
         Set the model inference hyperparameters. This can be used to manage memory usage during inference.
-        :param chunk_size: Chunks axial attention computation to reduce memory usage from O(L^2) to O(L). Equivalent to running
-        a for loop over chunks of each dimension. Lower values will result in lower memory usage at the cost of speed.
-        Recommended values: 128, 64, 32. Default: None.
         :return: A dictionary with the previous and current values of the chunk_size parameter.
         """
-        self.model.set_chunk_size(chunk_size)
+        self.model.set_chunk_size(params.chunk_size)
         return {
             "prev_params": {"chunk_size": self.model.trunk.chunk_size},
-            "curr_params": {"chunk_size": chunk_size}
+            "curr_params": {"chunk_size": params.chunk_size}
         }
 
     @app.post("/fold_sequences")
-    async def fold_sequences(self, seqs: List[SequenceInput], num_recycles: int = 4, max_tokens_per_batch: int = 1024) -> List[FoldOutput]:
+    async def fold_sequences(self, seqs: List[SequenceInput] = Field(description="A list of sequences to fold with "
+                                                                                 "names. "
+                                                                                 "Use the `fold_sequences/no_name` "
+                                                                                 "endpoint "
+                                                                                 "if you don't have names."),
+                             num_recycles: int = Field(4, description="Number of recycles to run. Defaults to number "
+                                                                      "used in training (4)."),
+                             max_tokens_per_batch: int = Field(1024,
+                                                               description="Maximum number of tokens per gpu "
+                                                                           "forward-pass. This will group shorter "
+                                                                           "sequences together for batched prediction. "
+                                                                           "Lowering this can help with out of memory "
+                                                                           "issues, if these occur on short sequences. "
+                                                                           "Default: 1024.")) -> List[FoldOutput]:
         """
         Fold a list of sequences.
-        :param seqs: A list of sequences to fold with names. Use the `fold_sequences/no_name` endpoint if you don't have names.
-        :param num_recycles: Number of recycles to run. Defaults to number used in training (4).
-        :param max_tokens_per_batch: Maximum number of tokens per gpu forward-pass. This will group shorter sequences together
-        for batched prediction. Lowering this can help with out of memory issues, if these occur on short sequences. Default: 1024.
         :return: A list of FoldOutput objects, each containing the name, sequence, pdb_string, mean_plddt, and ptm of the folded sequence.
         """
-
         for seq_input in seqs:
             if not seq_input.name:
                 seq_input.name = seq_input.sequence[:20]
@@ -165,48 +168,64 @@ class MyFastAPIDeployment:
         return outputs
 
     @app.post("/fold_sequences/no_name")
-    async def fold_sequences_no_name(self, seqs: List[str], num_recycles: int = 4, max_tokens_per_batch: int = 1024) -> \
+    async def fold_sequences_no_name(self, seqs: List[SequenceInput] = Field(description="A list of sequences to fold with "
+                                                                                 "names. "
+                                                                                 "Use the `fold_sequences/no_name` "
+                                                                                 "endpoint "
+                                                                                 "if you don't have names."),
+                             num_recycles: int = Field(4, description="Number of recycles to run. Defaults to number "
+                                                                      "used in training (4)."),
+                             max_tokens_per_batch: int = Field(1024,
+                                                               description="Maximum number of tokens per gpu "
+                                                                           "forward-pass. This will group shorter "
+                                                                           "sequences together for batched prediction. "
+                                                                           "Lowering this can help with out of memory "
+                                                                           "issues, if these occur on short sequences. "
+                                                                           "Default: 1024.")) -> \
     List[FoldOutput]:
         """
         Fold a list of sequences.
-        :param seqs: A list of sequences to fold. Use the `fold_sequences` endpoint if you'd like to provide names for each sequence.
-        :param num_recycles: Number of recycles to run. Defaults to number used in training (4).
-        :param max_tokens_per_batch: Maximum number of tokens per gpu forward-pass. This will group shorter sequences together
-        for batched prediction. Lowering this can help with out of memory issues, if these occur on short sequences. Default: 1024.
         :return: A list of FoldOutput objects, each containing the name, sequence, pdb_string, mean_plddt, and ptm of the folded sequence.
         """
         seqs = [SequenceInput(sequence=seq) for seq in seqs]
         return await self.fold_sequences(seqs, num_recycles, max_tokens_per_batch)
 
     @app.post("/fold_sequence")
-    async def fold_sequence(self, sequence: SequenceInput, num_recycles: int = 4) -> FoldOutput:
+    async def fold_sequence(self, sequence: SequenceInput = Field(description="A sequence to fold with a name. Use the "
+                                                                              "`fold_sequence/no_name` endpoint if "
+                                                                              "you don't have a name."),
+                             num_recycles: int = Field(4, description="Number of recycles to run. Defaults to number "
+                                                                      "used in training (4).")) -> FoldOutput:
         """
         Fold a sequence.
-        :param sequence: A sequence to fold with a name. Use the `fold_sequence/no_name` endpoint if you don't have a name.
-        :param num_recycles: Number of recycles to run. Defaults to number used in training (4).
         :return: A FoldOutput object containing the name, sequence, pdb_string, mean_plddt, and ptm of the folded sequence.
         """
         return (await self.fold_sequences([sequence], num_recycles))[0]
 
 
     @app.post("/fold_sequence/no_name")
-    async def fold_sequence_no_name(self, sequence: str, num_recycles: int = 4) -> FoldOutput:
+    async def fold_sequence_no_name(self, sequence: SequenceInput = Field(description="A sequence to fold with a name. Use the "
+                                                                              "`fold_sequence` endpoint if you'd like to provide a name for the sequence."),
+                             num_recycles: int = Field(4, description="Number of recycles to run. Defaults to number "
+                                                                      "used in training (4).")) -> FoldOutput:
         """
         Fold a sequence.
-        :param sequence: A sequence to fold. Use the `fold_sequence` endpoint if you'd like to provide a name for the sequence.
-        :param num_recycles: Number of recycles to run. Defaults to number used in training (4).
         :return: A FoldOutput object containing the name, sequence, pdb_string, mean_plddt, and ptm of the folded sequence.
         """
         return (await self.fold_sequences_no_name([sequence], num_recycles))[0]
 
     @app.post("/fold_fasta")
-    async def fold_fasta(self, fasta: UploadFile, num_recycles: int = 4, max_tokens_per_batch: int = 1024) -> List[FoldOutput]:
+    async def fold_fasta(self, fasta: UploadFile = Field(description="A fasta file containing sequences to fold."), num_recycles: int = Field(4, description="Number of recycles to run. Defaults to number "
+                                                                      "used in training (4)."),
+                             max_tokens_per_batch: int = Field(1024,
+                                                               description="Maximum number of tokens per gpu "
+                                                                           "forward-pass. This will group shorter "
+                                                                           "sequences together for batched prediction. "
+                                                                           "Lowering this can help with out of memory "
+                                                                           "issues, if these occur on short sequences. "
+                                                                           "Default: 1024.")) -> List[FoldOutput]:
         """
         Fold sequences from a fasta file. Use the `fold_fasta/zipped` endpoint if you'd like to download the results as a zip file.
-        :param fasta: A fasta file containing sequences to fold.
-        :param num_recycles: Number of recycles to run. Defaults to number used in training (4).
-        :param max_tokens_per_batch: Maximum number of tokens per gpu forward-pass. This will group shorter sequences together
-        for batched prediction. Lowering this can help with out of memory issues, if these occur on short sequences. Default: 1024.
         :return: A list of FoldOutput objects, each containing the name, sequence, pdb_string, mean_plddt, and ptm of the folded sequence.
         """
         try:
@@ -227,14 +246,18 @@ class MyFastAPIDeployment:
 
 
     @app.post("/fold_fasta/zipped")
-    async def fold_fasta_zipped(self, fasta: UploadFile, num_recycles: int = 4, max_tokens_per_batch: int = 1024):
+    async def fold_fasta_zipped(self, fasta: UploadFile = Field(description="A fasta file containing sequences to fold."), num_recycles: int = Field(4, description="Number of recycles to run. Defaults to number "
+                                                                      "used in training (4)."),
+                             max_tokens_per_batch: int = Field(1024,
+                                                               description="Maximum number of tokens per gpu "
+                                                                           "forward-pass. This will group shorter "
+                                                                           "sequences together for batched prediction. "
+                                                                           "Lowering this can help with out of memory "
+                                                                           "issues, if these occur on short sequences. "
+                                                                           "Default: 1024.")):
         """
         Fold sequences from a fasta file and download the results as a zip file. Use the `fold_fasta` endpoint if you'd
         like to return the results as a list.
-        :param fasta: A fasta file containing sequences to fold.
-        :param num_recycles: Number of recycles to run. Defaults to number used in training (4).
-        :param max_tokens_per_batch: Maximum number of tokens per gpu forward-pass. This will group shorter sequences together
-        for batched prediction. Lowering this can help with out of memory issues, if these occur on short sequences. Default: 1024.
         :return: A zip file containing the pdb files and a csv file with the confidence metrics for each sequence.
         """
         try:
