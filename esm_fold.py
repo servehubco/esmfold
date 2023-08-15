@@ -15,7 +15,7 @@ import tempfile
 import biotite.structure.io as bsio
 from starlette.responses import StreamingResponse
 
-from esm_fold_script import create_batched_sequence_datasest
+from .esm_fold_script import create_batched_sequence_datasest
 from timeit import default_timer as timer
 
 
