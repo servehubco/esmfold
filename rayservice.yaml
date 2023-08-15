@@ -84,10 +84,10 @@ spec:
                       command: [ "/bin/sh","-c","ray stop" ]
                 resources:
                   limits:
-                    cpu: "8"
+                    cpu: "7"
                     memory: "10Gi"
                     nvidia.com/gpu: "1"
                   requests:
-                    cpu: "8"
+                    cpu: "7"
                     memory: "10Gi"
                     nvidia.com/gpu: "1"
