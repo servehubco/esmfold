@@ -16,16 +16,18 @@ app = FastAPI()
 class SequenceInput(BaseModel):
     sequence: str
 
-@serve.deployment(route_prefix="/",
+@serve.deployment(route_prefix="/hello",
                   ray_actor_options={"num_cpus": 2, "num_gpus": 1})
 @serve.ingress(app)
 class MyFastAPIDeployment:
     def __init__(self):
-        logging.log(logging.INFO, "Loading model...")
+        self.logger = logging.getLogger(__name__)
+
+        self.logger.log(logging.INFO, "Loading model...")
         self.model = esm.pretrained.esmfold_v1()
-        logging.log(logging.INFO, "Model loaded.")
+        self.logger.log(logging.INFO, "Model loaded.")
         self.model = self.model.eval().cuda()
-        logging.log(logging.INFO, "Model set to eval and cuda.")
+        self.logger.log(logging.INFO, "Model set to eval and cuda.")
 
     @app.post("/")
     async def root(self, seq_input: SequenceInput):
