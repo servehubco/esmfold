@@ -8,7 +8,7 @@ metadata:
   name: esmfold
 spec:
   serviceUnhealthySecondThreshold: 300 # Config for the health check threshold for service. Default value is 60.
-  deploymentUnhealthySecondThreshold: 300 # Config for the health check threshold for deployments. Default value is 60.
+  deploymentUnhealthySecondThreshold: 660 # 11 minutes - takes 10 minutes for the image to download # Config for the health check threshold for deployments. Default value is 60.
   # serveConfigV2 takes a yaml multi-line scalar, which should be a Ray Serve multi-application config. See https://docs.ray.io/en/latest/serve/multi-app.html.
   # Only one of serveConfig and serveConfigV2 should be used.
   serveConfigV2: |
@@ -82,11 +82,9 @@ spec:
                 limits:
                   cpu: "0"
                   memory: "8Gi"
-#                  ephemeral-storage: "60Gi"
                 requests:
                   cpu: "0"
                   memory: "8Gi"
-#                  ephemeral-storage: "60Gi"
               ports:
                 - containerPort: 6379
                   name: gcs-server
@@ -104,7 +102,7 @@ spec:
       # the pod replicas in this group typed worker
       - replicas: 1
         minReplicas: 1
-        maxReplicas: 2
+        maxReplicas: 1
         # logical group name, for this called small-group, also can be functional
         groupName: regular-node
         # The `rayStartParams` are used to configure the `ray start` command.
