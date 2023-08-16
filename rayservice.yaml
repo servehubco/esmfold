@@ -124,11 +124,11 @@ spec:
                 resources:
                   limits:
                     cpu: "7"
-                    memory: "14Gi"
+                    memory: "13Gi"
                     nvidia.com/gpu: "1"
                     ephemeral-storage: "60Gi"
                   requests:
                     cpu: "7"
-                    memory: "14Gi"
+                    memory: "13Gi"
                     nvidia.com/gpu: "1"
                     ephemeral-storage: "60Gi"
