@@ -47,11 +47,13 @@ spec:
               image: vivkr/esmfold:latest
               resources:
                 limits:
-                  cpu: 0
-                  memory: 2Gi
+                  cpu: "0"
+                  memory: "8Gi"
+                  storage: "60Gi"
                 requests:
                   cpu: 0
-                  memory: 2Gi
+                  memory: "8Gi"
+                  storage: "60Gi"
               ports:
                 - containerPort: 6379
                   name: gcs-server
@@ -87,7 +89,9 @@ spec:
                     cpu: "7"
                     memory: "10Gi"
                     nvidia.com/gpu: "1"
+                    storage: "60Gi"
                   requests:
                     cpu: "7"
                     memory: "10Gi"
                     nvidia.com/gpu: "1"
+                    storage: "60Gi"
