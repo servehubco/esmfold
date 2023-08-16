@@ -271,24 +271,24 @@ class MyFastAPIDeployment:
         fasta: Annotated[
             UploadFile, Body(description="A fasta file containing sequences to fold.")
         ],
-        num_recycles: Annotated[
-            Optional[int],
-            Body(
-                description="Number of recycles to run. Defaults to number "
-                "used in training (4).",
-            ),
-        ] = 4,
-        max_tokens_per_batch: Annotated[
-            Optional[int],
-            Body(
-                description="Maximum number of tokens per gpu "
-                "forward-pass. This will group shorter "
-                "sequences together for batched prediction. "
-                "Lowering this can help with out of memory "
-                "issues, if these occur on short sequences. "
-                "Default: 1024.",
-            ),
-        ] = 1024,
+        # num_recycles: Annotated[
+        #     Optional[int],
+        #     Body(
+        #         description="Number of recycles to run. Defaults to number "
+        #         "used in training (4).",
+        #     ),
+        # ] = 4,
+        # max_tokens_per_batch: Annotated[
+        #     Optional[int],
+        #     Body(
+        #         description="Maximum number of tokens per gpu "
+        #         "forward-pass. This will group shorter "
+        #         "sequences together for batched prediction. "
+        #         "Lowering this can help with out of memory "
+        #         "issues, if these occur on short sequences. "
+        #         "Default: 1024.",
+        #     ),
+        # ] = 1024,
     ) -> StreamingResponse:
         """
         Fold sequences from a fasta file and download the results as a zip file. Use the `fold_fasta` endpoint if you'd
@@ -296,7 +296,7 @@ class MyFastAPIDeployment:
         Returns a zip file containing the pdb files and a csv file with the confidence metrics for each sequence.
         """
         try:
-            results = await self.fold_fasta(fasta, num_recycles, max_tokens_per_batch)
+            results = await self.fold_fasta(fasta)
 
             in_memory_zip = io.BytesIO()
             with zipfile.ZipFile(in_memory_zip, "w") as zf:
