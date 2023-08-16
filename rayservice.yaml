@@ -31,6 +31,39 @@ spec:
               num_gpus: 1.0
   rayClusterConfig:
     rayVersion: '2.6.1' # should match the Ray version in the image of the containers
+    enableInTreeAutoscaling: true # enable in-tree autoscaling
+    # autoscalerOptions is an OPTIONAL field specifying configuration overrides for the Ray autoscaler.
+    # The example configuration shown below below represents the DEFAULT values.
+    # (You may delete autoscalerOptions if the defaults are suitable.)
+    autoscalerOptions:
+      # upscalingMode is "Default" or "Aggressive."
+      # Conservative: Upscaling is rate-limited; the number of pending worker pods is at most the size of the Ray cluster.
+      # Default: Upscaling is not rate-limited.
+      # Aggressive: An alias for Default; upscaling is not rate-limited.
+      upscalingMode: Default
+      # idleTimeoutSeconds is the number of seconds to wait before scaling down a worker pod which is not using Ray resources.
+      idleTimeoutSeconds: 60
+      # image optionally overrides the autoscaler's container image.
+      # If instance.spec.rayVersion is at least "2.0.0", the autoscaler will default to the same image as
+      # the ray container. For older Ray versions, the autoscaler will default to using the Ray 2.0.0 image.
+      ## image: "my-repo/my-custom-autoscaler-image:tag"
+      # imagePullPolicy optionally overrides the autoscaler container's default image pull policy (IfNotPresent).
+      imagePullPolicy: IfNotPresent
+      # Optionally specify the autoscaler container's securityContext.
+      securityContext: { }
+      # env and envFrom: These fields specify autoscaler container environment variables. These fields should be formatted following the Kubernetes API for container environment variables.
+      env: [ ]
+      envFrom: [ ]
+      # resources specifies optional resource request and limit overrides for the autoscaler container.
+      # The default autoscaler resource limits and requests should be sufficient for production use-cases.
+      # However, for large Ray clusters, we recommend monitoring container resource usage to determine if overriding the defaults is required.
+      resources:
+        limits:
+          cpu: "500m"
+          memory: "512Mi"
+        requests:
+          cpu: "500m"
+          memory: "512Mi"
     ######################headGroupSpecs#################################
     # Ray head pod template.
     headGroupSpec:
@@ -63,6 +96,10 @@ spec:
                   name: client
                 - containerPort: 8000
                   name: serve
+          tolerations:
+            - key: "node-group/ray-head"
+              operator: "Exists"
+              effect: "NoSchedule"
     workerGroupSpecs:
       # the pod replicas in this group typed worker
       - replicas: 1
