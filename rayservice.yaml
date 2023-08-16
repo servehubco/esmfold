@@ -21,7 +21,7 @@ spec:
         import_path: esm_fold:deployment
   
         runtime_env:
-              working_dir: "https://bioml-tasks-agent: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@github.com/bioml-tasks-repos/esm/archive/37362b41e1f8653976cd289bb733ce1dd91d1667.zip"
+              working_dir: "https://bioml-tasks-agent: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@github.com/bioml-tasks-repos/esm/archive/f3e1c68fd5b65de0846685579b5cd496c3033cf7.zip"
               pip:
                 - python-multipart
         deployments:
