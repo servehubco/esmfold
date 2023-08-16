@@ -42,7 +42,7 @@ spec:
       # Aggressive: An alias for Default; upscaling is not rate-limited.
       upscalingMode: Default
       # idleTimeoutSeconds is the number of seconds to wait before scaling down a worker pod which is not using Ray resources.
-      idleTimeoutSeconds: 60
+      idleTimeoutSeconds: 600
       # image optionally overrides the autoscaler's container image.
       # If instance.spec.rayVersion is at least "2.0.0", the autoscaler will default to the same image as
       # the ray container. For older Ray versions, the autoscaler will default to using the Ray 2.0.0 image.
@@ -103,8 +103,8 @@ spec:
     workerGroupSpecs:
       # the pod replicas in this group typed worker
       - replicas: 1
-        minReplicas: 0
-        maxReplicas: 1
+        minReplicas: 1
+        maxReplicas: 2
         # logical group name, for this called small-group, also can be functional
         groupName: regular-node
         # The `rayStartParams` are used to configure the `ray start` command.
