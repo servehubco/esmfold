@@ -91,14 +91,14 @@ class MyFastAPIDeployment:
             Body(description="A list of sequences to fold."),
         ],
         num_recycles: Annotated[
-            int,
+            Optional[int],
             Body(
                 description="Number of recycles to run. Defaults to number "
                 "used in training (4)."
             ),
         ] = 4,
         max_tokens_per_batch: Annotated[
-            int,
+            Optional[int],
             Body(
                 description="Maximum number of tokens per gpu "
                 "forward-pass. This will group shorter "
@@ -194,7 +194,7 @@ class MyFastAPIDeployment:
             ),
         ] = None,
         num_recycles: Annotated[
-            int,
+            Optional[int],
             Body(
                 description="Number of recycles to run. Defaults to number "
                 "used in training (4)."
@@ -219,14 +219,14 @@ class MyFastAPIDeployment:
             UploadFile, Body(description="A fasta file containing sequences to fold.")
         ],
         num_recycles: Annotated[
-            int,
+            Optional[int],
             Body(
                 description="Number of recycles to run. Defaults to number "
                 "used in training (4).",
             ),
         ] = 4,
         max_tokens_per_batch: Annotated[
-            int,
+            Optional[int],
             Body(
                 description="Maximum number of tokens per gpu "
                 "forward-pass. This will group shorter "
@@ -272,14 +272,14 @@ class MyFastAPIDeployment:
             UploadFile, Body(description="A fasta file containing sequences to fold.")
         ],
         num_recycles: Annotated[
-            int,
+            Optional[int],
             Body(
                 description="Number of recycles to run. Defaults to number "
                 "used in training (4).",
             ),
         ] = 4,
         max_tokens_per_batch: Annotated[
-            int,
+            Optional[int],
             Body(
                 description="Maximum number of tokens per gpu "
                 "forward-pass. This will group shorter "
