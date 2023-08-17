@@ -7,7 +7,7 @@ from typing import Annotated, List, Optional
 
 import esm
 from esm.data import read_fasta
-from fastapi import Body, FastAPI, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, HTTPException, UploadFile
 from ray import serve
 from pydantic import BaseModel, Field
 import tempfile
@@ -216,7 +216,7 @@ class MyFastAPIDeployment:
     async def fold_fasta(
         self,
         fasta: Annotated[
-            UploadFile, Body(description="A fasta file containing sequences to fold.")
+            UploadFile, File(description="A fasta file containing sequences to fold.")
         ],
         num_recycles: Annotated[
             Optional[int],
@@ -269,26 +269,26 @@ class MyFastAPIDeployment:
     async def fold_fasta_zipped(
         self,
         fasta: Annotated[
-            UploadFile, Body(description="A fasta file containing sequences to fold.")
+            UploadFile, File(description="A fasta file containing sequences to fold.")
         ],
-        # num_recycles: Annotated[
-        #     Optional[int],
-        #     Body(
-        #         description="Number of recycles to run. Defaults to number "
-        #         "used in training (4).",
-        #     ),
-        # ] = 4,
-        # max_tokens_per_batch: Annotated[
-        #     Optional[int],
-        #     Body(
-        #         description="Maximum number of tokens per gpu "
-        #         "forward-pass. This will group shorter "
-        #         "sequences together for batched prediction. "
-        #         "Lowering this can help with out of memory "
-        #         "issues, if these occur on short sequences. "
-        #         "Default: 1024.",
-        #     ),
-        # ] = 1024,
+        num_recycles: Annotated[
+            Optional[int],
+            Body(
+                description="Number of recycles to run. Defaults to number "
+                "used in training (4).",
+            ),
+        ] = 4,
+        max_tokens_per_batch: Annotated[
+            Optional[int],
+            Body(
+                description="Maximum number of tokens per gpu "
+                "forward-pass. This will group shorter "
+                "sequences together for batched prediction. "
+                "Lowering this can help with out of memory "
+                "issues, if these occur on short sequences. "
+                "Default: 1024.",
+            ),
+        ] = 1024,
     ) -> StreamingResponse:
         """
         Fold sequences from a fasta file and download the results as a zip file. Use the `fold_fasta` endpoint if you'd
