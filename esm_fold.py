@@ -1,6 +1,7 @@
 import csv
 import io
 import logging
+import shutil
 import zipfile
 from pathlib import Path
 from typing import Annotated, List, Optional
@@ -57,6 +58,16 @@ class ModelInferenceHyperparameters(BaseModel):
         description="Chunks axial attention computation to reduce memory usage from O(L^2) to O(L). Equivalent to running a for loop over chunks of each dimension. Lower values will result in lower memory usage at the cost of speed. Recommended values: 128, 64, 32. Default: None.",
     )
 
+
+def save_upload_file_tmp(upload_file: UploadFile) -> Path:
+    try:
+        suffix = Path(upload_file.filename).suffix
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            shutil.copyfileobj(upload_file.file, tmp)
+            tmp_path = Path(tmp.name)
+    finally:
+        upload_file.file.close()
+    return tmp_path
 
 @serve.deployment(route_prefix="/", ray_actor_options={"num_cpus": 7, "num_gpus": 1})
 @serve.ingress(app)
@@ -181,7 +192,7 @@ class MyFastAPIDeployment:
 
             return outputs
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=f"Failed to fold sequences: {e}")
 
     @app.post("/fold_sequence")
     async def fold_sequence(
@@ -241,29 +252,26 @@ class MyFastAPIDeployment:
         Fold sequences from a fasta file. Use the `fold_fasta/zipped` endpoint if you'd like a zip with pdb files for each sequence.
         """
         try:
-            fasta_content = await fasta.read()
+            tmp_path = save_upload_file_tmp(fasta)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to save fasta: {e}")
 
-            with tempfile.NamedTemporaryFile(
-                delete=False, suffix=".fasta"
-            ) as temp_fasta:
-                temp_fasta.write(fasta_content)
-                temp_fasta_path = Path(temp_fasta.name)
-                if temp_fasta_path.exists():
-                    temp_fasta_path.unlink()
-
-                all_sequences = sorted(
-                    read_fasta(temp_fasta), key=lambda header_seq: len(header_seq[1])
-                )
-                seqs = [
-                    SequenceInput(name=header, sequence=seq)
-                    for header, seq in all_sequences
-                ]
-                return await self.fold_sequences(
-                    seqs, num_recycles, max_tokens_per_batch
-                )
+        try:
+            all_sequences = sorted(
+                read_fasta(tmp_path), key=lambda header_seq: len(header_seq[1])
+            )
+            seqs = [
+                SequenceInput(name=header, sequence=seq)
+                for header, seq in all_sequences
+            ]
+            return await self.fold_sequences(
+                seqs, num_recycles, max_tokens_per_batch
+            )
 
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=f"Failed to fold fasta: {e}")
+        finally:
+            tmp_path.unlink()
 
     @app.post("/fold_fasta/zipped")
     async def fold_fasta_zipped(
@@ -296,7 +304,7 @@ class MyFastAPIDeployment:
         Returns a zip file containing the pdb files and a csv file with the confidence metrics for each sequence.
         """
         try:
-            results = await self.fold_fasta(fasta)
+            results = await self.fold_fasta(fasta, num_recycles, max_tokens_per_batch)
 
             in_memory_zip = io.BytesIO()
             with zipfile.ZipFile(in_memory_zip, "w") as zf:
@@ -324,7 +332,7 @@ class MyFastAPIDeployment:
             )
 
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=f"Failed to fold fasta zipped: {e}")
 
 
 deployment = MyFastAPIDeployment.bind()
