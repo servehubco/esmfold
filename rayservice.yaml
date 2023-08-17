@@ -21,9 +21,9 @@ spec:
         import_path: esm_fold:deployment
   
         runtime_env:
-              working_dir: "https://bioml-tasks-agent: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@github.com/bioml-tasks-repos/esm/archive/refs/heads/main.zip"
-              pip:
-                - python-multipart
+          working_dir: "https://bioml-tasks-agent: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@github.com/bioml-tasks-repos/esm/archive/259a93c308cc356f36701f21498d4c535b16a1ef.zip"
+          pip:
+            - python-multipart
         deployments:
           - name: MyFastAPIDeployment
             ray_actor_options:
