@@ -5,7 +5,7 @@
 
 
 from pathlib import Path
-import sys,os
+import sys, os
 import argparse
 import logging
 import sys
@@ -92,7 +92,11 @@ def create_parser():
         "-o", "--pdb", help="Path to output PDB directory", type=Path, required=True
     )
     parser.add_argument(
-        "-m", "--model-dir", help="Parent path to Pretrained ESM data directory. ", type=Path, default=None
+        "-m",
+        "--model-dir",
+        help="Parent path to Pretrained ESM data directory. ",
+        type=Path,
+        default=None,
     )
     parser.add_argument(
         "--num-recycles",
@@ -118,7 +122,9 @@ def create_parser():
         "Default: None.",
     )
     parser.add_argument("--cpu-only", help="CPU only", action="store_true")
-    parser.add_argument("--cpu-offload", help="Enable CPU offloading", action="store_true")
+    parser.add_argument(
+        "--cpu-offload", help="Enable CPU offloading", action="store_true"
+    )
     return parser
 
 
@@ -130,7 +136,9 @@ def run(args):
 
     # Read fasta and sort sequences by length
     logger.info(f"Reading sequences from {args.fasta}")
-    all_sequences = sorted(read_fasta(args.fasta), key=lambda header_seq: len(header_seq[1]))
+    all_sequences = sorted(
+        read_fasta(args.fasta), key=lambda header_seq: len(header_seq[1])
+    )
     logger.info(f"Loaded {len(all_sequences)} sequences from {args.fasta}")
 
     logger.info("Loading model")
@@ -141,7 +149,6 @@ def run(args):
         torch.hub.set_dir(args.model_dir)
 
     model = esm.pretrained.esmfold_v1()
-
 
     model = model.eval()
     model.set_chunk_size(args.chunk_size)
@@ -154,7 +161,9 @@ def run(args):
     else:
         model.cuda()
     logger.info("Starting Predictions")
-    batched_sequences = create_batched_sequence_datasest(all_sequences, args.max_tokens_per_batch)
+    batched_sequences = create_batched_sequence_datasest(
+        all_sequences, args.max_tokens_per_batch
+    )
 
     num_completed = 0
     num_sequences = len(all_sequences)
@@ -200,6 +209,7 @@ def main():
     parser = create_parser()
     args = parser.parse_args()
     run(args)
+
 
 if __name__ == "__main__":
     main()

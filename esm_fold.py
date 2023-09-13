@@ -48,11 +48,22 @@ class FoldOutput(BaseModel):
     ptm: float = Field(description="The pTM of the folded sequence.")
 
 
-class ModelInferenceHyperparameters(BaseModel):
+class InferenceParams(BaseModel):
     """
-    Hyperparameters that can be set for model inference. These can be used to manage memory usage during inference.
+    These params be used to manage memory usage during inference.
     """
-
+    num_recycles: Optional[int] = Field(4,
+            description="Number of recycles to run. Defaults to number "
+                        "used in training (4)."
+        )
+    max_tokens_per_batch: Optional[int] = Field(1024,
+            description="Maximum number of tokens per gpu "
+                        "forward-pass. This will group shorter "
+                        "sequences together for batched prediction. "
+                        "Lowering this can help with out of memory "
+                        "issues, if these occur on short sequences. "
+                        "Default: 1024.",
+        )
     chunk_size: Optional[int] = Field(
         None,
         description="Chunks axial attention computation to reduce memory usage from O(L^2) to O(L). Equivalent to running a for loop over chunks of each dimension. Lower values will result in lower memory usage at the cost of speed. Recommended values: 128, 64, 32. Default: None.",
@@ -69,6 +80,7 @@ def save_upload_file_tmp(upload_file: UploadFile) -> Path:
         upload_file.file.close()
     return tmp_path
 
+
 @serve.deployment(route_prefix="/", ray_actor_options={"num_cpus": 7, "num_gpus": 1})
 @serve.ingress(app)
 class MyFastAPIDeployment:
@@ -80,50 +92,62 @@ class MyFastAPIDeployment:
         self.model = self.model.eval().cuda()
         self.logger.log(logging.INFO, "Model set to eval and cuda.")
 
-    @app.post("/set_model_inference_hyperparams")
-    async def set_model_inference_hyperparams(
-        self, params: ModelInferenceHyperparameters
-    ):
-        """
-        Set the model inference hyperparameters. This can be used to manage memory usage during inference.
-        Returns a dictionary with the previous and current values of the chunk_size parameter.
-        """
-        self.model.set_chunk_size(params.chunk_size)
-        return {
-            "prev_params": {"chunk_size": self.model.trunk.chunk_size},
-            "curr_params": {"chunk_size": params.chunk_size},
-        }
+    # @app.post("/set_model_inference_hyperparams")
+    # async def set_model_inference_hyperparams(
+    #     self, params: ModelInferenceHyperparameters
+    # ):
+    #     """
+    #     Set the model inference hyperparameters. This can be used to manage memory usage during inference.
+    #     Returns a dictionary with the previous and current values of the chunk_size parameter.
+    #     """
+    #     self.model.set_chunk_size(params.chunk_size)
+    #     return {
+    #         "prev_params": {"chunk_size": self.model.trunk.chunk_size},
+    #         "curr_params": {"chunk_size": params.chunk_size},
+    #     }
 
-    @app.post("/fold_sequences")
+    @app.post(
+        "/fold_sequences",
+    )
     async def fold_sequences(
         self,
         seqs: Annotated[
             List[SequenceInput],
-            Body(description="A list of sequences to fold."),
+            Body(
+                description="A list of sequences to fold.",
+                examples=[{
+                    "Jessica": {"value": [
+                        {
+                            "name": "seq1",
+                            "sequence": "MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG",
+                        },
+                        {
+                            "name": "seq2",
+                            "sequence": "KALTARQQEVFDLIRDHISQTGMPPTRAEIAQRLGFRSPNAAEEHLKALARKGVIEIVSGASRGIRLLQEE",
+                        },
+                    ]},
+                    "Tom": {"value": [
+                        {
+                            "name": "seq4",
+                            "sequence": "MKTVRQERLKSIVRILERSKEPVSGAQLAEELSVSRQVIVQDIAYLRSLGYNIVATPRGYVLAGG",
+                        },
+                        {
+                            "name": "seq3",
+                            "sequence": "KALTARQQEVFDLIRDHISQTGMPPTRAEIAQRLGFRSPNAAEEHLKALARKGVIEIVSGASRGIRLLQEE",
+                        },
+                    ]},
+                }],
+            ),
         ],
-        num_recycles: Annotated[
-            Optional[int],
-            Body(
-                description="Number of recycles to run. Defaults to number "
-                "used in training (4)."
-            ),
-        ] = 4,
-        max_tokens_per_batch: Annotated[
-            Optional[int],
-            Body(
-                description="Maximum number of tokens per gpu "
-                "forward-pass. This will group shorter "
-                "sequences together for batched prediction. "
-                "Lowering this can help with out of memory "
-                "issues, if these occur on short sequences. "
-                "Default: 1024."
-            ),
-        ] = 1024,
+        inference_params: Optional[InferenceParams] = InferenceParams(),
     ) -> List[FoldOutput]:
         """
         Fold a list of sequences.
         """
         try:
+            # set the inference hyperparameters
+            self.model.set_chunk_size(inference_params.chunk_size)
+
             for seq_input in seqs:
                 if not seq_input.name:
                     seq_input.name = seq_input.sequence[:20]
@@ -132,7 +156,7 @@ class MyFastAPIDeployment:
             seqs = [(seq_input.name, seq_input.sequence) for seq_input in seqs]
 
             batched_sequences = create_batched_sequence_datasest(
-                seqs, max_tokens_per_batch
+                seqs, inference_params.max_tokens_per_batch
             )
 
             num_completed = 0
@@ -141,7 +165,7 @@ class MyFastAPIDeployment:
             for headers, sequences in batched_sequences:
                 start = timer()
                 try:
-                    output = self.model.infer(sequences, num_recycles=num_recycles)
+                    output = self.model.infer(sequences, num_recycles=inference_params.num_recycles)
                 except RuntimeError as e:
                     if e.args[0].startswith("CUDA out of memory"):
                         if len(sequences) > 1:
@@ -192,7 +216,12 @@ class MyFastAPIDeployment:
 
             return outputs
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Failed to fold sequences: {e}")
+            raise HTTPException(
+                status_code=400, detail=f"Failed to fold sequences: {e}"
+            )
+        finally:
+            # reset the inference hyperparameters
+            self.model.set_chunk_size(None)
 
     @app.post("/fold_sequence")
     async def fold_sequence(
@@ -204,13 +233,7 @@ class MyFastAPIDeployment:
                 description="Name of the sequence. If not provided, the sequence will be named the first 20 letters of the sequence."
             ),
         ] = None,
-        num_recycles: Annotated[
-            Optional[int],
-            Body(
-                description="Number of recycles to run. Defaults to number "
-                "used in training (4)."
-            ),
-        ] = 4,
+        inference_params: Optional[InferenceParams] = InferenceParams(),
     ) -> FoldOutput:
         """
         Fold a sequence.
@@ -219,7 +242,7 @@ class MyFastAPIDeployment:
             name = sequence[:20]
         return (
             await self.fold_sequences(
-                [SequenceInput(name=name, sequence=sequence)], num_recycles
+                [SequenceInput(name=name, sequence=sequence)], inference_params
             )
         )[0]
 
@@ -229,24 +252,7 @@ class MyFastAPIDeployment:
         fasta: Annotated[
             UploadFile, File(description="A fasta file containing sequences to fold.")
         ],
-        num_recycles: Annotated[
-            Optional[int],
-            Body(
-                description="Number of recycles to run. Defaults to number "
-                "used in training (4).",
-            ),
-        ] = 4,
-        max_tokens_per_batch: Annotated[
-            Optional[int],
-            Body(
-                description="Maximum number of tokens per gpu "
-                "forward-pass. This will group shorter "
-                "sequences together for batched prediction. "
-                "Lowering this can help with out of memory "
-                "issues, if these occur on short sequences. "
-                "Default: 1024.",
-            ),
-        ] = 1024,
+        inference_params: Optional[InferenceParams] = InferenceParams(),
     ) -> List[FoldOutput]:
         """
         Fold sequences from a fasta file. Use the `fold_fasta/zipped` endpoint if you'd like a zip with pdb files for each sequence.
@@ -264,9 +270,7 @@ class MyFastAPIDeployment:
                 SequenceInput(name=header, sequence=seq)
                 for header, seq in all_sequences
             ]
-            return await self.fold_sequences(
-                seqs, num_recycles, max_tokens_per_batch
-            )
+            return await self.fold_sequences(seqs, inference_params)
 
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Failed to fold fasta: {e}")
@@ -279,24 +283,7 @@ class MyFastAPIDeployment:
         fasta: Annotated[
             UploadFile, File(description="A fasta file containing sequences to fold.")
         ],
-        num_recycles: Annotated[
-            Optional[int],
-            Body(
-                description="Number of recycles to run. Defaults to number "
-                "used in training (4).",
-            ),
-        ] = 4,
-        max_tokens_per_batch: Annotated[
-            Optional[int],
-            Body(
-                description="Maximum number of tokens per gpu "
-                "forward-pass. This will group shorter "
-                "sequences together for batched prediction. "
-                "Lowering this can help with out of memory "
-                "issues, if these occur on short sequences. "
-                "Default: 1024.",
-            ),
-        ] = 1024,
+        inference_params: Optional[InferenceParams] = InferenceParams(),
     ) -> StreamingResponse:
         """
         Fold sequences from a fasta file and download the results as a zip file. Use the `fold_fasta` endpoint if you'd
@@ -304,7 +291,7 @@ class MyFastAPIDeployment:
         Returns a zip file containing the pdb files and a csv file with the confidence metrics for each sequence.
         """
         try:
-            results = await self.fold_fasta(fasta, num_recycles, max_tokens_per_batch)
+            results = await self.fold_fasta(fasta, inference_params)
 
             in_memory_zip = io.BytesIO()
             with zipfile.ZipFile(in_memory_zip, "w") as zf:
@@ -332,7 +319,9 @@ class MyFastAPIDeployment:
             )
 
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Failed to fold fasta zipped: {e}")
+            raise HTTPException(
+                status_code=400, detail=f"Failed to fold fasta zipped: {e}"
+            )
 
 
 deployment = MyFastAPIDeployment.bind()
